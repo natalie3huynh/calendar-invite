@@ -3,50 +3,50 @@ VERSION:2.0
 PRODID:-//calendar-invite//AI Parser//EN
 BEGIN:VEVENT
 SUMMARY:Meet with Sarah
-DTSTART:20260622T100000
-DTEND:20260622T110000
-DTSTAMP:20260610T205832Z
-UID:2042d874-fef0-48db-bc7e-2dc5b2657fa3
+DTSTART:20260611T100000
+DTEND:20260611T110000
+DTSTAMP:20260610T223315Z
+UID:d69ba937-2f02-499c-8d82-5650c9047a64
 DESCRIPTION:Source sentence: We need to talk to Sarah by next Friday about
   the dashboard redesign.\nDeadline to meet: next Friday\nProject deadline:
   None\nPriority deadline: None
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Meet with John
-DTSTART:20260623T100000
-DTEND:20260623T110000
-DTSTAMP:20260610T205832Z
-UID:da9ec403-f258-41d0-a506-59ab0a66dd04
+DTSTART:20260612T100000
+DTEND:20260612T110000
+DTSTAMP:20260610T223315Z
+UID:28daa5cb-777b-404f-a001-2c1150df204f
 DESCRIPTION:Source sentence: Please follow up with John on Monday regardin
  g the API integration issues.\nDeadline to meet: None\nProject deadline: N
  one\nPriority deadline: None
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Meet with Michael
-DTSTART:20260624T100000
-DTEND:20260624T110000
-DTSTAMP:20260610T205832Z
-UID:5c9c7a4c-559c-4e69-b71d-afc2b49970f9
+DTSTART:20260615T100000
+DTEND:20260615T110000
+DTSTAMP:20260610T223315Z
+UID:351ab808-a01a-4f7c-8b4c-074c26033ab8
 DESCRIPTION:Source sentence: Can someone reach out to Michael as soon as p
  ossible to clarify deployment timelines?\nDeadline to meet: None\nProject 
  deadline: None\nPriority deadline: None
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Deadline Task
-DTSTART:20260625T100000
-DTEND:20260625T110000
-DTSTAMP:20260610T205832Z
-UID:a30914d9-c5a0-41d1-bbae-d664e7a38737
+DTSTART:20260620T080000
+DTEND:20260620T090000
+DTSTAMP:20260610T223315Z
+UID:c78153c5-c625-43df-a315-b0da8bc437ee
 DESCRIPTION:Source sentence: The backend refactor is due by June 20th\, an
  d Alex is responsible for final review.\nDeadline to meet: June 20th\nProj
  ect deadline: None\nPriority deadline: None
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Meet with Priya
-DTSTART:20260626T100000
-DTEND:20260626T110000
-DTSTAMP:20260610T205832Z
-UID:507507a1-2b1c-41a8-90a1-e165c93227c6
+DTSTART:20260616T100000
+DTEND:20260616T110000
+DTSTAMP:20260610T223315Z
+UID:b12322ef-041f-43aa-9abd-4520db48d035
 DESCRIPTION:Source sentence: Also\, speak to Priya before Wednesday about 
  the UX changes.\nDeadline to meet: Wednesday\nProject deadline: None\nPrio
  rity deadline: None

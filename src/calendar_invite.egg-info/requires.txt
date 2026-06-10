@@ -1,7 +1,6 @@
-pip
 python-docx
-spacy
 dateparser
 icalendar
 holidays>=0.83
-en-core-web-sm
+spacy>=3.8.11
+click>=8.1.8

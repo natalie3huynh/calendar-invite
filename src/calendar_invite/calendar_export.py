@@ -4,7 +4,6 @@ import uuid
 import re
 import holidays
 
-
 # =========================
 # HOLIDAYS + VALID DAYS
 # =========================
@@ -31,7 +30,7 @@ def next_business_day(dt):
 
 
 # =========================
-# DATE PARSING (FIXED LOGIC)
+# DATE PARSING
 # =========================
 def parse_deadline(text, transcript_date):
     if not text:
@@ -47,23 +46,16 @@ def parse_deadline(text, transcript_date):
         "friday": 4,
     }
 
-    # -------------------------
-    # CASE 1: "next Friday" (FIXED: ALWAYS NEXT WEEK)
-    # -------------------------
+    # next Friday etc
     match = re.search(r"\bnext\s+(monday|tuesday|wednesday|thursday|friday)", text)
     if match:
         day = weekday_map[match.group(1)]
+        delta = day - transcript_date.weekday()
+        if delta <= 0:
+            delta += 7
+        return transcript_date + timedelta(days=delta + 7)
 
-        current_week_delta = day - transcript_date.weekday()
-        if current_week_delta <= 0:
-            current_week_delta += 7
-
-        # FORCE NEXT WEEK (key fix)
-        return transcript_date + timedelta(days=current_week_delta + 7)
-
-    # -------------------------
-    # CASE 2: "on Monday"
-    # -------------------------
+    # on Monday
     match = re.search(r"\bon\s+(monday|tuesday|wednesday|thursday|friday)", text)
     if match:
         day = weekday_map[match.group(1)]
@@ -72,9 +64,7 @@ def parse_deadline(text, transcript_date):
             delta += 7
         return transcript_date + timedelta(days=delta)
 
-    # -------------------------
-    # CASE 3: "by Friday"
-    # -------------------------
+    # by Friday
     match = re.search(r"\bby\s+(monday|tuesday|wednesday|thursday|friday)", text)
     if match:
         day = weekday_map[match.group(1)]
@@ -83,9 +73,7 @@ def parse_deadline(text, transcript_date):
             delta += 7
         return transcript_date + timedelta(days=delta)
 
-    # -------------------------
-    # CASE 4: bare weekday
-    # -------------------------
+    # bare weekday
     for name, day in weekday_map.items():
         if name in text:
             delta = day - transcript_date.weekday()
@@ -93,20 +81,40 @@ def parse_deadline(text, transcript_date):
                 delta += 7
             return transcript_date + timedelta(days=delta)
 
+    # IMPORTANT: keep explicit dates like "June 20th"
+    match = re.search(r"(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})", text)
+    if match:
+        month = match.group(1)
+        day = int(match.group(2))
+
+        month_map = {
+            "june": 6,
+            "july": 7,
+        }
+
+        year = transcript_date.year
+        return datetime(year, month_map[month], day)
+
     return None
 
 
 # =========================
-# SCHEDULING SLOT
+# SLOT HELPERS
 # =========================
-def schedule_slot(date):
-    start = datetime.combine(date.date(), time(10, 0))
-    end = datetime.combine(date.date(), time(11, 0))
+def meeting_slot(dt):
+    start = datetime.combine(dt.date(), time(10, 0))
+    end = datetime.combine(dt.date(), time(11, 0))
+    return start, end
+
+
+def deadline_slot(dt):
+    start = datetime.combine(dt.date(), time(8, 0))
+    end = datetime.combine(dt.date(), time(9, 0))
     return start, end
 
 
 # =========================
-# MAIN ICS EXPORT
+# MAIN EXPORT
 # =========================
 def create_ics(intents, output_file="output.ics"):
     cal = Calendar()
@@ -114,41 +122,44 @@ def create_ics(intents, output_file="output.ics"):
     cal.add("version", "2.0")
 
     transcript_date = datetime.now()
-    current_day = next_business_day(transcript_date)
+    current_meeting_day = next_business_day(transcript_date)
 
     for intent in intents:
         event = Event()
 
+        # ---------------- CLASSIFY ----------------
+        is_deadline = (
+            intent.project_deadline
+            or intent.priority_deadline
+            or (intent.deadline_to_meet and "due" in intent.raw_sentence.lower())
+        )
+
         # ---------------- SUMMARY ----------------
         if intent.meet_with:
             summary = f"Meet with {intent.meet_with}"
-        elif intent.project_deadline:
-            summary = "Project Deadline"
         else:
             summary = "Deadline Task"
 
         event.add("summary", summary)
 
-        # ---------------- TARGET DATE ----------------
-        target_date = parse_deadline(intent.deadline_to_meet, transcript_date)
+        # ---------------- DEADLINES (FIXED: NO SHIFTING) ----------------
+        if is_deadline:
+            target = parse_deadline(
+                intent.deadline_to_meet
+                or intent.project_deadline
+                or intent.priority_deadline,
+                transcript_date
+            )
 
-        # ---------------- PICK DAY ----------------
-        if target_date:
-            meeting_day = target_date
+            if target:
+                start, end = deadline_slot(target)
+            else:
+                start, end = deadline_slot(transcript_date)
+
+        # ---------------- MEETINGS ----------------
         else:
-            meeting_day = current_day
-
-        # enforce business rules
-        while is_invalid_day(meeting_day):
-            meeting_day = next_business_day(meeting_day)
-
-        # stagger meetings
-        if meeting_day < current_day:
-            meeting_day = current_day
-
-        current_day = next_business_day(meeting_day)
-
-        start, end = schedule_slot(meeting_day)
+            start, end = meeting_slot(current_meeting_day)
+            current_meeting_day = next_business_day(current_meeting_day)
 
         # ---------------- EVENT ----------------
         event.add("dtstart", start)
@@ -158,12 +169,10 @@ def create_ics(intents, output_file="output.ics"):
 
         event.add(
             "description",
-            "\n".join([
-                f"Source sentence: {intent.raw_sentence or ''}",
-                f"Deadline to meet: {intent.deadline_to_meet or 'None'}",
-                f"Project deadline: {intent.project_deadline or 'None'}",
-                f"Priority deadline: {intent.priority_deadline or 'None'}",
-            ])
+            f"Source sentence: {intent.raw_sentence or ''}\n"
+            f"Deadline to meet: {intent.deadline_to_meet or 'None'}\n"
+            f"Project deadline: {intent.project_deadline or 'None'}\n"
+            f"Priority deadline: {intent.priority_deadline or 'None'}"
         )
 
         cal.add_component(event)

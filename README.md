@@ -13,4 +13,6 @@ The scheduler automatically avoids weekends and US federal holidays and assigns 
 ```bash
 git clone https://github.com/natalie3huynh/calendar-invite.git
 cd calendar-invite
-
+uv sync
+uv run python -m spacy download en_core_web_sm
+uv run calendar-invite sample.docx
