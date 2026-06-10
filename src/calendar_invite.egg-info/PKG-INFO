@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: calendar-invite
+Version: 0.1.0
+Summary: Extracts meeting actions and deadlines from Teams notes and generates calendar invites
+Requires-Python: >=3.9
+Requires-Dist: pip
+Requires-Dist: python-docx
+Requires-Dist: spacy
+Requires-Dist: dateparser
+Requires-Dist: icalendar
+Requires-Dist: holidays>=0.83
+Requires-Dist: en-core-web-sm

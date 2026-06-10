@@ -1,0 +1,2 @@
+[console_scripts]
+calendar-invite = calendar_invite.cli:main

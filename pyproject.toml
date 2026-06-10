@@ -1,7 +1,17 @@
 [project]
 name = "calendar-invite"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Extracts meeting actions and deadlines from Teams notes and generates calendar invites"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "python-docx",
+    "spacy",
+    "icalendar",
+    "holidays>=0.83"
+]
+
+[project.scripts]
+calendar-invite = "calendar_invite.cli:main"
+
+[tool.uv]
+package = true

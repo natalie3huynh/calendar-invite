@@ -1,0 +1,7 @@
+pip
+python-docx
+spacy
+dateparser
+icalendar
+holidays>=0.83
+en-core-web-sm
