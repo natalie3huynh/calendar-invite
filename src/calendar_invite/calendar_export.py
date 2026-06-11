@@ -22,84 +22,19 @@ def is_invalid_day(dt):
     return is_weekend(dt) or is_holiday(dt)
 
 
-def next_business_day(dt):
-    dt = dt + timedelta(days=1)
+def adjust_to_business_day(dt):
     while is_invalid_day(dt):
         dt += timedelta(days=1)
     return dt
 
 
-# =========================
-# DATE PARSING
-# =========================
-def parse_deadline(text, transcript_date):
-    if not text:
-        return None
-
-    text = text.lower()
-
-    weekday_map = {
-        "monday": 0,
-        "tuesday": 1,
-        "wednesday": 2,
-        "thursday": 3,
-        "friday": 4,
-    }
-
-    # next Friday etc
-    match = re.search(r"\bnext\s+(monday|tuesday|wednesday|thursday|friday)", text)
-    if match:
-        day = weekday_map[match.group(1)]
-        delta = day - transcript_date.weekday()
-        if delta <= 0:
-            delta += 7
-        return transcript_date + timedelta(days=delta + 7)
-
-    # on Monday
-    match = re.search(r"\bon\s+(monday|tuesday|wednesday|thursday|friday)", text)
-    if match:
-        day = weekday_map[match.group(1)]
-        delta = day - transcript_date.weekday()
-        if delta <= 0:
-            delta += 7
-        return transcript_date + timedelta(days=delta)
-
-    # by Friday
-    match = re.search(r"\bby\s+(monday|tuesday|wednesday|thursday|friday)", text)
-    if match:
-        day = weekday_map[match.group(1)]
-        delta = day - transcript_date.weekday()
-        if delta <= 0:
-            delta += 7
-        return transcript_date + timedelta(days=delta)
-
-    # bare weekday
-    for name, day in weekday_map.items():
-        if name in text:
-            delta = day - transcript_date.weekday()
-            if delta <= 0:
-                delta += 7
-            return transcript_date + timedelta(days=delta)
-
-    # IMPORTANT: keep explicit dates like "June 20th"
-    match = re.search(r"(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})", text)
-    if match:
-        month = match.group(1)
-        day = int(match.group(2))
-
-        month_map = {
-            "june": 6,
-            "july": 7,
-        }
-
-        year = transcript_date.year
-        return datetime(year, month_map[month], day)
-
-    return None
+def next_business_day(dt):
+    dt = dt + timedelta(days=1)
+    return adjust_to_business_day(dt)
 
 
 # =========================
-# SLOT HELPERS
+# SLOT
 # =========================
 def meeting_slot(dt):
     start = datetime.combine(dt.date(), time(10, 0))
@@ -107,10 +42,89 @@ def meeting_slot(dt):
     return start, end
 
 
-def deadline_slot(dt):
-    start = datetime.combine(dt.date(), time(8, 0))
-    end = datetime.combine(dt.date(), time(9, 0))
-    return start, end
+# =========================
+# WEEKDAY MAP
+# =========================
+WEEKDAYS = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+}
+
+
+# =========================
+# CORE DATE RESOLUTION
+# =========================
+def resolve_weekday(weekday, transcript_date, mode="next"):
+    """
+    mode:
+      - next: next occurrence
+      - this: same week if possible
+    """
+    target_weekday = WEEKDAYS[weekday]
+    current_weekday = transcript_date.weekday()
+
+    if mode == "this":
+        delta = target_weekday - current_weekday
+        if delta < 0:
+            delta += 7
+    else:  # "next"
+        delta = target_weekday - current_weekday
+        if delta <= 0:
+            delta += 7
+
+    return transcript_date + timedelta(days=delta)
+
+
+# =========================
+# PARSER
+# =========================
+def extract_meeting_date(text, transcript_date):
+    if not text:
+        return None
+
+    t = text.lower()
+
+    modifier = None
+    if "before " in t:
+        modifier = "before"
+    elif "by " in t:
+        modifier = "by"
+    elif "next " in t:
+        modifier = "next"
+    elif "this " in t:
+        modifier = "this"
+
+    weekday = None
+    for w in WEEKDAYS:
+        if re.search(rf"\b{w}\b", t):
+            weekday = w
+            break
+
+    if not weekday:
+        return None
+
+    # resolve base date
+    if modifier == "next":
+        base = resolve_weekday(weekday, transcript_date, mode="next")
+
+    elif modifier == "this":
+        base = resolve_weekday(weekday, transcript_date, mode="this")
+        if base < transcript_date:
+            base = resolve_weekday(weekday, transcript_date, mode="next")
+
+    else:
+        # default + "by" behaves like target date
+        base = resolve_weekday(weekday, transcript_date, mode="next")
+
+    # apply BEFORE rule
+    if modifier == "before":
+        base -= timedelta(days=1)
+        base = adjust_to_business_day(base)
+
+    return base
 
 
 # =========================
@@ -125,43 +139,24 @@ def create_ics(intents, output_file="output.ics"):
     current_meeting_day = next_business_day(transcript_date)
 
     for intent in intents:
-        event = Event()
 
-        # ---------------- CLASSIFY ----------------
-        is_deadline = (
-            intent.project_deadline
-            or intent.priority_deadline
-            or (intent.deadline_to_meet and "due" in intent.raw_sentence.lower())
+        if not intent.meet_with:
+            continue
+
+        event = Event()
+        event.add("summary", f"Meet with {intent.meet_with}")
+
+        meeting_date = extract_meeting_date(
+            intent.raw_sentence,
+            transcript_date
         )
 
-        # ---------------- SUMMARY ----------------
-        if intent.meet_with:
-            summary = f"Meet with {intent.meet_with}"
-        else:
-            summary = "Deadline Task"
-
-        event.add("summary", summary)
-
-        # ---------------- DEADLINES (FIXED: NO SHIFTING) ----------------
-        if is_deadline:
-            target = parse_deadline(
-                intent.deadline_to_meet
-                or intent.project_deadline
-                or intent.priority_deadline,
-                transcript_date
-            )
-
-            if target:
-                start, end = deadline_slot(target)
-            else:
-                start, end = deadline_slot(transcript_date)
-
-        # ---------------- MEETINGS ----------------
+        if meeting_date:
+            start, end = meeting_slot(meeting_date)
         else:
             start, end = meeting_slot(current_meeting_day)
             current_meeting_day = next_business_day(current_meeting_day)
 
-        # ---------------- EVENT ----------------
         event.add("dtstart", start)
         event.add("dtend", end)
         event.add("dtstamp", datetime.utcnow())
@@ -170,9 +165,7 @@ def create_ics(intents, output_file="output.ics"):
         event.add(
             "description",
             f"Source sentence: {intent.raw_sentence or ''}\n"
-            f"Deadline to meet: {intent.deadline_to_meet or 'None'}\n"
-            f"Project deadline: {intent.project_deadline or 'None'}\n"
-            f"Priority deadline: {intent.priority_deadline or 'None'}"
+            f"Meeting with: {intent.meet_with}\n"
         )
 
         cal.add_component(event)

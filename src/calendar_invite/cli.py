@@ -11,7 +11,7 @@ def main():
         print("Usage: calendar-invite <file.docx>")
         sys.exit(1)
 
-    file_path = sys.argv[1]
+    file_path = sys.argv[1].strip()
 
     # ---------------- READ INPUT ----------------
     try:
@@ -23,7 +23,16 @@ def main():
     # ---------------- PROCESS NLP ----------------
     intents = process_sentences(text)
 
+    # ---------------- EMPTY SAFETY CHECK ----------------
+    if not intents:
+        print("No meeting intents found.")
+        sys.exit(0)
+
     # ---------------- GENERATE ICS ----------------
     create_ics(intents)
 
-    print("Done. Output written to output.ics")
+    print(f"Done. Output written to output.ics ({len(intents)} meetings)")
+
+
+if __name__ == "__main__":
+    main()
